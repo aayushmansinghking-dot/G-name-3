@@ -3,191 +3,208 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aayushman Runner 3D</title>
+<title>Ayushman Gaming</title>
 <style>
-body { margin:0; overflow:hidden; background:#87ceeb; font-family:sans-serif;}
-#banner { position:absolute; top:50px; width:100%; text-align:center; font-size:2rem; color:yellow; font-weight:bold; display:none; z-index:10;}
-#stats { position:absolute; top:10px; left:10px; color:white; font-size:18px; z-index:10;}
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    * { box-sizing: border-box; margin:0; padding:0; font-family: 'Roboto', sans-serif; }
+    body { background: #0d0d0d; color: #fff; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; overflow-x:hidden; }
+    h1, h2, h3 { text-align:center; }
+    .container { width:90%; max-width:900px; margin:auto; padding:20px; }
+    input[type="text"] { padding:10px; margin:5px; border-radius:5px; border:none; outline:none; width:200px; font-size:16px; }
+    button { padding:10px 20px; margin:10px; font-size:16px; border:none; border-radius:10px; cursor:pointer; background:linear-gradient(45deg,#ff4b1f,#1fddff); color:#fff; transition:0.3s; }
+    button:hover { transform:scale(1.1); }
+    .hidden { display:none; }
+    .player-box { margin:10px 0; }
+    .fade { animation: fadein 0.5s; }
+    @keyframes fadein { from { opacity:0; } to { opacity:1; } }
+    .result-box { display:flex; flex-wrap:wrap; justify-content:center; }
+    .card { background: #222; border-radius:15px; padding:15px; margin:10px; min-width:150px; text-align:center; box-shadow: 0 0 20px rgba(0,255,255,0.3); transition: transform 0.3s; }
+    .card:hover { transform:scale(1.05); }
 </style>
 </head>
 <body>
-<div id="banner">Welcome to Aayushman World!</div>
-<div id="stats">Score: <span id="scoreDisplay">0</span> | Coins: <span id="coinDisplay">0</span></div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+<div id="page1" class="container fade">
+    <h1>Ayushman Gaming</h1>
+    <h2>Enter Player Names</h2>
+    <div id="playersContainer"></div>
+    <button id="playGameBtn" class="hidden">Play the Game</button>
+</div>
+
+<div id="page2" class="container hidden fade">
+    <h2 id="currentPlayerName"></h2>
+    <button id="confidentialBtn">Confidential</button>
+    <h3 id="resultDisplay"></h3>
+    <button id="nextPlayerBtn" class="hidden">Next Player</button>
+</div>
+
+<div id="page3" class="container hidden fade">
+    <h2 id="questionPlayerName"></h2>
+    <div id="questionContainer">
+        <p id="questionText"></p>
+        <input type="text" id="answerInput" placeholder="Your answer">
+        <button id="nextQuestionBtn">Next</button>
+    </div>
+</div>
+
+<div id="page4" class="container hidden fade">
+    <h1>Game Result</h1>
+    <div id="finalResult" class="result-box"></div>
+</div>
+
 <script>
-let scene, camera, renderer;
-let player, players=[], trains=[], coins=[];
-let lanesY = [-2,0,2];
-let currentLane = 1;
-let score = 0, coinCount=0, bannerShown=false;
-let clock = new THREE.Clock();
-let speed = 0.1;
+const characters = ["ANSH","SRISHTI","KHUSHI","ISHU","AARUSH","KUNDAN","AVISHA","DABLOO","RUDRA","DAKSH","PRIYAM","SIDDHI","GOPAL","PAKO","CHUNNU","NAND","PRATAP","SUNITA","BABY","PUNAM","DOLLY","SUDHA","TUNNI"];
+let players = [];
+let assignedCharacters = {};
+let imposter = "";
+let currentIndex = 0;
+let questionIndex = 0;
+const questions = [
+    "What is your relation to the character?",
+    "Number of sons of the character?",
+    "Maximum age of the character?"
+];
 
-// Initialize Three.js
-scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+// ---------- PAGE 1: Player Registration ----------
+const playersContainer = document.getElementById('playersContainer');
+const playGameBtn = document.getElementById('playGameBtn');
 
-camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,5,10);
-camera.lookAt(0,0,0);
-
-renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-// Lighting
-let light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(10,10,10);
-scene.add(light);
-scene.add(new THREE.AmbientLight(0xffffff,0.5));
-
-// Ground
-let groundGeo = new THREE.PlaneGeometry(10,200);
-let groundMat = new THREE.MeshPhongMaterial({color:0x444444});
-let ground = new THREE.Mesh(groundGeo,groundMat);
-ground.rotation.x = -Math.PI/2;
-ground.position.z = -90;
-scene.add(ground);
-
-// Player class
-class Player3D {
-    constructor(name,color,isBoss=false){
-        this.name=name;
-        this.isBoss=isBoss;
-        let geometry = new THREE.BoxGeometry(1,2,1);
-        let material = new THREE.MeshStandardMaterial({color:color});
-        if(isBoss){ material.emissive = new THREE.Color(0x00ffff); material.emissiveIntensity = 0.5;}
-        this.mesh = new THREE.Mesh(geometry,material);
-        this.mesh.position.set(0,1,0);
-        scene.add(this.mesh);
-    }
-    moveLane(lane){
-        this.mesh.position.x = lanesY[lane];
-    }
-    jump(){
-        let initialY = this.mesh.position.y;
-        let jumpUp = {y: initialY+2};
-        let jumpDown = {y: initialY};
-        let t=0;
-        let interval = setInterval(()=>{
-            t+=0.1;
-            if(t<1) this.mesh.position.y = initialY+2*t;
-            else if(t<2) this.mesh.position.y = initialY+2*(2-t);
-            else { this.mesh.position.y = initialY; clearInterval(interval);}
-        },16);
-    }
+function addPlayerInput() {
+    const inputDiv = document.createElement('div');
+    inputDiv.classList.add('player-box');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = `Player ${players.length + 1} Name`;
+    input.addEventListener('input', () => {
+        if(input.value.trim() !== "") {
+            if(players.length === playersContainer.children.length -1) addPlayerInput();
+        }
+        togglePlayButton();
+    });
+    inputDiv.appendChild(input);
+    playersContainer.appendChild(inputDiv);
 }
-
-// Initialize players
-players.push(new Player3D("ANSH",0x0000ff)); // free
-players.push(new Player3D("EKLAVYA",0x00ff00));
-players.push(new Player3D("PIYUSH",0xffa500));
-players.push(new Player3D("PRINCE",0x800080));
-players.push(new Player3D("HIMANSHU",0xff1493));
-players.push(new Player3D("AAYUSHMAN",0x00ffff,true)); // boss glowing
-
-player = players[0];
-
-// Train obstacle
-class Train{
-    constructor(z){
-        let geo = new THREE.BoxGeometry(1,1,4);
-        let mat = new THREE.MeshStandardMaterial({color:0xff0000});
-        this.mesh = new THREE.Mesh(geo,mat);
-        let lane = lanesY[Math.floor(Math.random()*lanesY.length)];
-        this.mesh.position.set(lane,0.5,z);
-        scene.add(this.mesh);
-    }
-    move(){
-        this.mesh.position.z += speed*50;
-    }
+function togglePlayButton() {
+    const filled = Array.from(playersContainer.querySelectorAll('input')).filter(i=>i.value.trim()!=="");
+    playGameBtn.classList.toggle('hidden', filled.length < 2);
 }
+addPlayerInput();
 
-// Coin object
-class Coin{
-    constructor(z){
-        let geo = new THREE.SphereGeometry(0.3,16,16);
-        let mat = new THREE.MeshStandardMaterial({color:0xffff00});
-        this.mesh = new THREE.Mesh(geo,mat);
-        let lane = lanesY[Math.floor(Math.random()*lanesY.length)];
-        this.mesh.position.set(lane,0.5,z);
-        scene.add(this.mesh);
-    }
-    move(){
-        this.mesh.position.z += speed*50;
-    }
-}
-
-// Controls
-document.addEventListener('keydown',(e)=>{
-    if(e.key==='ArrowLeft' && currentLane>0) currentLane--;
-    if(e.key==='ArrowRight' && currentLane<2) currentLane++;
-    player.moveLane(currentLane);
-    if(e.key==='ArrowUp') player.jump();
+playGameBtn.addEventListener('click', () => {
+    players = Array.from(playersContainer.querySelectorAll('input')).map(i=>i.value.trim()).filter(n=>n!=="");
+    assignImposter();
+    showPage2();
 });
 
-// Spawn trains and coins
-function spawnObjects(){
-    if(Math.random()<0.02) trains.push(new Train(-100));
-    if(Math.random()<0.02) coins.push(new Coin(-100));
-}
+// ---------- PAGE 2: Imposter / Safe Assignment ----------
+const page2 = document.getElementById('page2');
+const page1 = document.getElementById('page1');
+const currentPlayerName = document.getElementById('currentPlayerName');
+const confidentialBtn = document.getElementById('confidentialBtn');
+const resultDisplay = document.getElementById('resultDisplay');
+const nextPlayerBtn = document.getElementById('nextPlayerBtn');
 
-// Collision detection
-function checkCollision(a,b){
-    let dx = Math.abs(a.mesh.position.x - b.mesh.position.x);
-    let dz = Math.abs(a.mesh.position.z - b.mesh.position.z);
-    return dx<0.75 && dz<1.5;
-}
-
-// Animate
-function animate(){
-    requestAnimationFrame(animate);
-    speed += 0.0001;
-
-    // Move trains
-    trains.forEach((t,i)=>{
-        t.move();
-        if(checkCollision(player,t)){
-            alert("Game Over! Score: "+score+" Coins: "+coinCount);
-            location.reload();
-        }
-        if(t.mesh.position.z>10){
-            scene.remove(t.mesh);
-            trains.splice(i,1);
-            score++;
-            document.getElementById('scoreDisplay').innerText=score;
-            if(score>=10 && !bannerShown){
-                document.getElementById('banner').style.display='block';
-                bannerShown=true;
-            }
-        }
+function assignImposter() {
+    const randIndex = Math.floor(Math.random() * players.length);
+    imposter = players[randIndex];
+    players.forEach(p => {
+        if(p !== imposter) assignedCharacters[p] = characters[Math.floor(Math.random()*characters.length)];
     });
-
-    // Move coins
-    coins.forEach((c,i)=>{
-        c.move();
-        if(checkCollision(player,c)){
-            coinCount++;
-            document.getElementById('coinDisplay').innerText=coinCount;
-            scene.remove(c.mesh);
-            coins.splice(i,1);
-        }
-        if(c.mesh.position.z>10){ scene.remove(c.mesh); coins.splice(i,1);}
-    });
-
-    spawnObjects();
-
-    // Camera follow
-    camera.position.z = player.mesh.position.z + 10;
-    camera.position.x = player.mesh.position.x;
-    camera.lookAt(player.mesh.position);
-
-    renderer.render(scene,camera);
 }
 
-animate();
+function showPage2() {
+    page1.classList.add('hidden');
+    page2.classList.remove('hidden');
+    currentIndex = 0;
+    loadCurrentPlayer();
+}
+
+function loadCurrentPlayer() {
+    const player = players[currentIndex];
+    currentPlayerName.textContent = player;
+    resultDisplay.textContent = "";
+    confidentialBtn.classList.remove('hidden');
+    nextPlayerBtn.classList.add('hidden');
+}
+
+confidentialBtn.addEventListener('click', () => {
+    const player = players[currentIndex];
+    if(player === imposter) {
+        resultDisplay.textContent = "Imposter";
+    } else {
+        resultDisplay.textContent = `Safe - Character: ${assignedCharacters[player]}`;
+    }
+    confidentialBtn.classList.add('hidden');
+    nextPlayerBtn.classList.remove('hidden');
+});
+
+nextPlayerBtn.addEventListener('click', () => {
+    currentIndex++;
+    if(currentIndex < players.length) {
+        loadCurrentPlayer();
+    } else {
+        showPage3();
+    }
+});
+
+// ---------- PAGE 3: Questions ----------
+const page3 = document.getElementById('page3');
+const questionPlayerName = document.getElementById('questionPlayerName');
+const questionText = document.getElementById('questionText');
+const answerInput = document.getElementById('answerInput');
+const nextQuestionBtn = document.getElementById('nextQuestionBtn');
+
+let questionAnswers = {};
+
+function showPage3() {
+    page2.classList.add('hidden');
+    page3.classList.remove('hidden');
+    currentIndex = 0;
+    questionIndex = 0;
+    loadQuestion();
+}
+
+function loadQuestion() {
+    const player = players[currentIndex];
+    questionPlayerName.textContent = player;
+    questionText.textContent = questions[questionIndex];
+    answerInput.value = '';
+}
+
+nextQuestionBtn.addEventListener('click', () => {
+    const player = players[currentIndex];
+    if(!questionAnswers[player]) questionAnswers[player] = [];
+    questionAnswers[player].push(answerInput.value.trim());
+    questionIndex++;
+    if(questionIndex < questions.length) {
+        loadQuestion();
+    } else {
+        questionIndex = 0;
+        currentIndex++;
+        if(currentIndex < players.length) {
+            loadQuestion();
+        } else {
+            showPage4();
+        }
+    }
+});
+
+// ---------- PAGE 4: Result ----------
+const page4 = document.getElementById('page4');
+const finalResult = document.getElementById('finalResult');
+
+function showPage4() {
+    page3.classList.add('hidden');
+    page4.classList.remove('hidden');
+    finalResult.innerHTML = "";
+    players.forEach(p => {
+        const div = document.createElement('div');
+        div.classList.add('card');
+        div.innerHTML = `<h3>${p}</h3><p>${p===imposter ? 'Imposter ❌' : 'Safe ✅ - Character: '+assignedCharacters[p]}</p>`;
+        finalResult.appendChild(div);
+    });
+}
 </script>
+
 </body>
 </html>
