@@ -74,7 +74,7 @@ function addPlayerInput() {
     inputDiv.classList.add('player-box');
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = `Player ${players.length + 10} Name`;
+    input.placeholder = `Player ${players.length + 1} Name`;
     input.addEventListener('input', () => {
         if(input.value.trim() !== "") {
             if(players.length === playersContainer.children.length -10) addPlayerInput();
