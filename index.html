@@ -77,7 +77,7 @@ function addPlayerInput() {
     input.placeholder = `Player ${players.length + 1} Name`;
     input.addEventListener('input', () => {
         if(input.value.trim() !== "") {
-            if(players.length === playersContainer.children.length -10) addPlayerInput();
+            if(players.length === playersContainer.children.length -1) addPlayerInput();
         }
         togglePlayButton();
     });
@@ -86,7 +86,7 @@ function addPlayerInput() {
 }
 function togglePlayButton() {
     const filled = Array.from(playersContainer.querySelectorAll('input')).filter(i=>i.value.trim()!=="");
-    playGameBtn.classList.toggle('hidden', filled.length < 2);
+    playGameBtn.classList.toggle('hidden', filled.length > 2);
 }
 addPlayerInput();
 
